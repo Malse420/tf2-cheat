@@ -24,9 +24,11 @@ void pred_start(usercmd_t* cmd) {
     old_bInPrediction       = i_prediction->m_bInPrediction;
     old_bFirstTimePredicted = i_prediction->m_bFirstTimePredicted;
 
-    /* Get and set random seed */
-    cmd->random_seed = MD5_PseudoRandom(cmd->command_number) & INT_MAX;
-    SetPredictionRandomSeed(cmd);
+    /* Get and set random seed (optional: prediction needs MD5 + SetPrediction) */
+    if (MD5_PseudoRandom)
+        cmd->random_seed = MD5_PseudoRandom(cmd->command_number) & INT_MAX;
+    if (SetPredictionRandomSeed)
+        SetPredictionRandomSeed(cmd);
 
     g.localplayer->m_pCurrentCommand = cmd;
 
@@ -63,7 +65,8 @@ void pred_end(void) {
     METHOD_ARGS(i_gamemovement, FinishTrackPredictionErrors, g.localplayer);
 
     /* If cmd parameter is null, function sets m_nPredictionRandomSeed to -1 */
-    SetPredictionRandomSeed(NULL);
+    if (SetPredictionRandomSeed)
+        SetPredictionRandomSeed(NULL);
 
     g.localplayer->m_pCurrentCommand = NULL;
 

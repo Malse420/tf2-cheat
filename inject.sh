@@ -8,7 +8,7 @@ fi
 
 # -s is used to only get one pid
 # If you need to get an array of processes remove it
-pid=$(pidof -s "hl2_linux")
+pid=$(pidof -s "tf_linux64")
 libpath=$(realpath "libenoch.so")
 
 if [[ ! -f "$libpath" ]]; then
@@ -29,7 +29,17 @@ if [[ $cozettevector -lt 1 ]]; then
     exit 1
 fi
 
-old_tmp_libpath_txt="/tmp/hl2_linux_${pid}_enoch.txt"
+old_tmp_libpath_txt="/tmp/tf_linux64_${pid}_enoch.txt"
+# NOTE: TF2 (under Steam's pressure-vessel container) has its own /tmp mount
+# namespace, so a library copied to the host /tmp is NOT visible to the game.
+# Copy the temp library into the game's cwd (the TF2 install dir) instead,
+# which is visible to both the host and the containerized process. Keep the
+# state file in the same place so reload/unload can find it.
+tf2_gamedir=$(readlink -f "/proc/${pid}/cwd" 2>/dev/null)
+if [[ -z "$tf2_gamedir" ]] || [[ ! -d "$tf2_gamedir" ]]; then
+    tf2_gamedir=$(dirname "$libpath")
+fi
+old_tmp_libpath_txt="${tf2_gamedir}/.enoch_${pid}.txt"
 if [[ -f "$old_tmp_libpath_txt" ]]; then
     old_tmp_libpath=$(head -n 1 "$old_tmp_libpath_txt")
     if [[ -z "$old_tmp_libpath" && "$old_tmp_libpath" != "" ]]; then
@@ -42,8 +52,8 @@ if [[ "$1" == "unload" ]] && [[ ! -z "$2" ]]; then
     # While unloading use the right library path
     tmp_libpath="$2"
 else
-    # Generate temp library path
-    tmp_libpath="/tmp/libgl"
+    # Generate temp library path inside the game's cwd (visible to the container)
+    tmp_libpath="${tf2_gamedir}/.libgl"
     tmp_libpath+=$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 4)
     tmp_libpath+=".so"
     cp -p "$libpath" "$tmp_libpath"

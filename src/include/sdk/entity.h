@@ -28,7 +28,7 @@ typedef struct Entity Entity;
 typedef struct Weapon Weapon;
 
 typedef struct {
-    PAD(4 * 1);
+    PAD(8 * 1);
     vec3_t* (*ObbMinsPreScaled)(Collideable*); /* 1 */
     vec3_t* (*ObbMaxsPreScaled)(Collideable*); /* 2 */
     vec3_t* (*ObbMins)(Collideable*);          /* 3 */
@@ -47,9 +47,9 @@ typedef struct {
 } ClientClass;
 
 typedef struct {
-    PAD(4 * 2);
+    PAD(8 * 2);
     ClientClass* (*GetClientClass)(Networkable*); /* 2 */
-    PAD(4 * 5);
+    PAD(8 * 5);
     bool (*IsDormant)(Networkable*); /* 8 */
     int (*GetIndex)(Networkable*);   /* 9 */
 } VMT_Networkable;
@@ -72,12 +72,12 @@ struct model_t {
 
 #define MAXSTUDIOBONES 128 /* Size of "bones" array */
 typedef struct {
-    PAD(4 * 9);
+    PAD(8 * 9);
     const model_t* (*GetModel)(Renderable*); /* 9 */
-    PAD(4 * 6);
+    PAD(8 * 6);
     bool (*SetupBones)(Renderable*, matrix3x4_t* bones, int maxBones,
                        int boneMask, float currentTime); /* 16 */
-    PAD(4 * 17);
+    PAD(8 * 17);
     matrix3x4_t* (*RenderableToWorldTransform)(Renderable*); /* 34 */
 } VMT_Renderable;
 
@@ -86,37 +86,37 @@ struct Renderable {
 };
 
 typedef struct {
-    PAD(4 * 4);
+    PAD(8 * 4);
     Collideable* (*GetCollideable)(Entity*); /* 4 */
-    PAD(4 * 6);
+    PAD(8 * 6);
     vec3_t* (*GetAbsOrigin)(Entity*); /* 11 */
     vec3_t* (*GetAbsAngles)(Entity*); /* 12 */
-    PAD(4 * 66);
+    PAD(8 * 66);
     int (*GetIndex)(Entity*); /* 79 */
-    PAD(4 * 26);
+    PAD(8 * 26);
     vec3_t* (*WorldSpaceCenter)(Entity*); /* 106 */
-    PAD(4 * 10);
+    PAD(8 * 10);
     int (*GetTeamNumber)(Entity*); /* 117 */
-    PAD(4 * 34);
+    PAD(8 * 34);
     int (*GetHealth)(Entity*);    /* 152 */
     int (*GetMaxHealth)(Entity*); /* 153 */
-    PAD(4 * 29);
+    PAD(8 * 29);
     bool (*IsAlive)(Entity*);  /* 183 */
     bool (*IsPlayer)(Entity*); /* 184 */
-    PAD(4 * 2);
+    PAD(8 * 2);
     bool (*IsNPC)(Entity*); /* 187 */
-    PAD(4 * 2);
+    PAD(8 * 2);
     bool (*IsWeapon)(Entity*); /* 190 */
-    PAD(4 * 3);
+    PAD(8 * 3);
     vec3_t (*EyePosition)(Entity*); /* 194 */
     vec3_t* (*EyeAngles)(Entity*);  /* 195 */
-    PAD(4 * 12);
+    PAD(8 * 12);
     void (*ThirdPersonSwitch)(Entity*, bool bThirdperson); /* 208 */
-    PAD(4 * 82);
+    PAD(8 * 82);
     Weapon* (*GetWeapon)(Entity*); /* 291 */
-    PAD(4 * 10);
+    PAD(8 * 10);
     vec3_t (*GetShootPos)(Entity*); /* 302 */
-    PAD(4 * 6);
+    PAD(8 * 6);
     int (*GetObserverMode)(Entity*);       /* 309 */
     Entity* (*GetObserverTarget)(Entity*); /* 310 */
 } VMT_Entity;
@@ -173,7 +173,11 @@ struct Entity {
 #define IsTeammate(ENT) \
     (METHOD(g.localplayer, GetTeamNumber) == METHOD(ENT, GetTeamNumber))
 
-#define IsSteamFriend(ENT) (IsPlayerOnSteamFriendsList(g.localplayer, ENT))
+/* IsSteamFriend: optional (IsPlayerOnSteamFriendsList sig). If unresolved,
+ * treat everyone as a non-friend rather than crashing. */
+#define IsSteamFriend(ENT) \
+    (IsPlayerOnSteamFriendsList ? IsPlayerOnSteamFriendsList(g.localplayer, ENT) \
+                                 : false)
 
 static inline int CBaseHandle_IsValid(CBaseHandle h) {
     return h != INVALID_EHANDLE_INDEX;
@@ -184,24 +188,24 @@ static inline int CBaseHandle_GetEntryIndex(CBaseHandle h) {
 }
 
 static inline Renderable* GetRenderable(Entity* ent) {
-    return (Renderable*)((uint32_t)ent + 0x4);
+    return (Renderable*)((uintptr_t)ent + 0x8);
 }
 
 static inline Networkable* GetNetworkable(Entity* ent) {
-    return (Networkable*)((uint32_t)ent + 0x8);
+    return (Networkable*)((uintptr_t)ent + 0x10);
 }
 
 static inline int GetMoveType(Entity* ent) {
     /* Got the offset from the top of CBaseEntity::VPhysicsUpdate() */
     const int offset = 0x194;
-    return *(int*)((uint32_t)ent + offset);
+    return *(int*)((uintptr_t)ent + offset);
 }
 
 /* NOTE: Caller should check if `ent' is a CTFGrenadePipebombProjectile */
 static inline bool IsStickyBomb(Entity* ent) {
     /* CTFGrenadePipebombProjectile->m_iType */
     const int offset  = 0x8DC;
-    int pipebomb_type = *(int*)((uint32_t)ent + offset);
+    int pipebomb_type = *(int*)((uintptr_t)ent + offset);
 
     /* Normal sticky or jumper sticky */
     return pipebomb_type == TF_GL_MODE_REMOTE_DETONATE ||
@@ -211,7 +215,7 @@ static inline bool IsStickyBomb(Entity* ent) {
 static inline CBaseHandle GetThrowerHandle(Entity* ent) {
     /* CBaseGrenade->m_hThrower */
     const int offset = 0x8B4;
-    return *(CBaseHandle*)((uint32_t)ent + offset);
+    return *(CBaseHandle*)((uintptr_t)ent + offset);
 }
 
 static inline const char* GetClassName(Entity* ent) {
@@ -296,7 +300,7 @@ static inline bool IsInvisible(Entity* ent) {
 
     /* CTFPlayer->m_flInvisChangeCompleteTime - 0x8 */
     const int invis_offset = 0x1A14;
-    float m_flInvisibility = *(float*)((uint32_t)ent + invis_offset);
+    float m_flInvisibility = *(float*)((uintptr_t)ent + invis_offset);
     return m_flInvisibility >= 1.f;
 }
 

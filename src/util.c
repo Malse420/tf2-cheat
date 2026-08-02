@@ -32,16 +32,18 @@ void* get_interface(void* handle, const char* name) {
 }
 
 size_t vmt_size(void* vmt) {
-    /* Pointer to vmt -> Array of function pointers */
-    void** funcs = (void**)vmt;
-
-    int i = 0;
-
-    while (funcs[i])
-        i++;
-
-    /* Return bytes, not number of function pointers */
-    return i * sizeof(void*);
+    /* 64-bit: Source vtables are NOT reliably NULL-terminated and often have
+     * NULL entries in the middle, so scanning for the first NULL (the old
+     * 32-bit approach) returns too few bytes. That caused CLONE_VMT to
+     * malloc a too-small buffer, and VMT_HOOK then wrote past it (e.g.
+     * ClientMode::CreateMove at index 22) -> heap overflow -> segfault.
+     *
+     * Use a fixed generous size instead. Source vtables never exceed ~100
+     * entries; 200 is a safe upper bound. Copying a few extra bytes of
+     * adjacent read-only data past the real vtable end is harmless since the
+     * cheat and the game only access known indices. */
+    (void)vmt;
+    return 200 * sizeof(void*);
 }
 
 /*----------------------------------------------------------------------------*/

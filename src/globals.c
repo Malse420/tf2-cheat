@@ -6,9 +6,12 @@
 #include "include/globals.h"
 #include "include/libsigscan.h"
 
-/* See wiki */
-#define SWAPWINDOW_OFFSET 0xFD648
-#define POLLEVENT_OFFSET  0xFCF64
+/* SDL2 SwapWindow/PollEvent are hooked via their GOT entries in launcher.so
+ * (R_X86_64_JUMP_SLOT relocations at these file offsets). The old 32-bit
+ * approach used offsets in libSDL2 itself, but the game calls SDL via
+ * launcher.so's GOT, which is writable. */
+#define SWAPWINDOW_GOT_OFFSET 0x51458
+#define POLLEVENT_GOT_OFFSET  0x511a8
 
 #define GET_HANDLE(VAR, STR)                          \
     void* VAR = dlopen(STR, RTLD_LAZY | RTLD_NOLOAD); \
@@ -30,6 +33,16 @@
     if (!VAR) {                                        \
         ERR("Couldn't match signature for " #SIG);     \
         return false;                                  \
+    }
+
+/* Optional variant of GET_SIGNATURE: warn (don't abort) on miss, so the cheat
+ * still loads with a reduced feature set if a signature isn't matched yet.
+ * Call sites of the resolved pointer must NULL-check it. */
+#define GET_SIGNATURE_OPT(VAR, MODULE, SIG)             \
+    void* VAR = sigscan_module("^.*" MODULE "$", SIG);  \
+    if (!VAR) {                                          \
+        ERR("Couldn't match signature for " #SIG        \
+            " (optional: feature disabled)");           \
     }
 
 /*----------------------------------------------------------------------------*/
@@ -76,77 +89,72 @@ DECL_CLASS(CGlobalVars, globalvars);
 
 /*----------------------------------------------------------------------------*/
 
-/* See: https://github.com/8dcc/bms-cheat/wiki */
+/* 64-bit: resolve the global singletons via signature-matched `lea r,[rip->GOT]`
+ * callsites. RELATIVE2ABSOLUTE(pat+9) gives the GOT slot address; *(GOT slot) is
+ * the object pointer. Confirmed at runtime (OverrideView vtable[17],
+ * CGlobalVars layout, GetUserCmd vtable[8]). */
 static inline ClientMode* get_clientmode(void) {
-    const int byte_offset = 1;
-
-    void* func_ptr      = i_baseclient->vmt->HudProcessInput;
-    void* g_pClientMode = *(void**)(func_ptr + byte_offset); /* 60 1F 06 02 */
-    ClientMode* ret     = *(ClientMode**)g_pClientMode;
-
-    return ret;
+    GET_SIGNATURE(pat, CLIENT_SO, SIG_ClientMode);
+    void** got = (void**)RELATIVE2ABSOLUTE(pat + 9);
+    return *(ClientMode**)got;
 }
 
-/* Same as clientmode but with a different function and offset */
 static inline CGlobalVars* get_globalvars(void) {
-    const int byte_offset = 9;
-
-    void* func_ptr   = i_baseclient->vmt->HudUpdate;
-    void* gpGlobals  = *(void**)(func_ptr + byte_offset); /* 70 33 F9 01 */
-    CGlobalVars* ret = *(CGlobalVars**)gpGlobals;
-
-    return ret;
+    GET_SIGNATURE(pat, CLIENT_SO, SIG_GlobalVars);
+    void** got = (void**)RELATIVE2ABSOLUTE(pat + 9);
+    return *(CGlobalVars**)got;
 }
 
 static inline CInput* get_input(void) {
-    const int byte_offset = 1;
-
-    /* Needs to run after get_clientmode() */
-    void* func_ptr = i_baseclient->vmt->IN_ActivateMouse;
-    void* input    = *(void**)(func_ptr + byte_offset); /* 04 D2 F9 01 */
-    CInput* ret    = *(CInput**)input;
-
-    return ret;
+    GET_SIGNATURE(pat, CLIENT_SO, SIG_Input);
+    void** got = (void**)RELATIVE2ABSOLUTE(pat + 9);
+    return *(CInput**)got;
 }
 
 static inline bool get_sigs(void) {
     /* NOTE: Signature scanning and pointer functions can be a bit messy. Keep
      * in mind that RELATIVE2ABSOLUTE() dereferences the pointer once */
 
-    /* MatSurface functions */
+    /* MatSurface functions (64-bit: entry-point signatures -> match is the fn) */
     GET_SIGNATURE(pat_StartDrawing, MATSURFACE_SO, SIG_StartDrawing);
-    StartDrawing = RELATIVE2ABSOLUTE(pat_StartDrawing + 20);
+    StartDrawing = pat_StartDrawing;
 
     GET_SIGNATURE(pat_FinishDrawing, MATSURFACE_SO, SIG_FinishDrawing);
-    FinishDrawing = RELATIVE2ABSOLUTE(pat_FinishDrawing + 13);
+    FinishDrawing = pat_FinishDrawing;
 
-    /* CL_Move's bSendPacket
-     * NOTE: We set PROT_WRITE since since we will change the pointer value */
-    GET_SIGNATURE(pat_bSendPacket, ENGINE_SO, SIG_bSendPacket);
-    bSendPacket = pat_bSendPacket + 1;
-    protect_addr(bSendPacket, PROT_READ | PROT_WRITE | PROT_EXEC);
+    /* CL_Move's bSendPacket (optional: pSilent/anti-aim/fakelag).
+     * NOTE: We set PROT_WRITE since since we will change the pointer value.
+     * 64-bit TODO: the 32-bit `pat+1` (absolute imm) doesn't apply; needs the
+     * RIP-relative resolution once the 64-bit signature is finalized. */
+    GET_SIGNATURE_OPT(pat_bSendPacket, ENGINE_SO, SIG_bSendPacket);
+    if (pat_bSendPacket) {
+        bSendPacket = pat_bSendPacket + 1;
+        protect_addr(bSendPacket, PROT_READ | PROT_WRITE | PROT_EXEC);
+    }
 
-    /* ClientState
-     * NOTE: We don't use RELATIVE2ABSOLUTE() since it's an absolute address */
+    /* ClientState (64-bit: 'cl' global object; resolve the lea->cl RIP target) */
     GET_SIGNATURE(pat_ClientState, ENGINE_SO, SIG_ClientState);
-    c_clientstate = *(CClientState**)(pat_ClientState + 3);
+    c_clientstate = (CClientState*)RELATIVE2ABSOLUTE(pat_ClientState + 9);
 
-    /* CBaseEntity::SetPredictionRandomSeed() */
-    GET_SIGNATURE(pat_SetPredictionRandomSeed, CLIENT_SO,
-                  SIG_SetPredictionRandomSeed);
-    SetPredictionRandomSeed =
-      RELATIVE2ABSOLUTE(pat_SetPredictionRandomSeed + 19);
+    /* CBaseEntity::SetPredictionRandomSeed() (optional: prediction/meleebot) */
+    GET_SIGNATURE_OPT(pat_SetPredictionRandomSeed, CLIENT_SO,
+                      SIG_SetPredictionRandomSeed);
+    if (pat_SetPredictionRandomSeed)
+        SetPredictionRandomSeed =
+          RELATIVE2ABSOLUTE(pat_SetPredictionRandomSeed + 19);
 
-    /* MD5_PseudoRandom() */
-    GET_SIGNATURE(pat_MD5_PseudoRandom, CLIENT_SO, SIG_MD5_PseudoRandom);
-    MD5_PseudoRandom = RELATIVE2ABSOLUTE(pat_MD5_PseudoRandom + 18);
+    /* MD5_PseudoRandom() (optional: prediction/meleebot) */
+    GET_SIGNATURE_OPT(pat_MD5_PseudoRandom, CLIENT_SO, SIG_MD5_PseudoRandom);
+    if (pat_MD5_PseudoRandom)
+        MD5_PseudoRandom = RELATIVE2ABSOLUTE(pat_MD5_PseudoRandom + 18);
 
-    /* IsPlayerOnSteamFriendsList()
+    /* IsPlayerOnSteamFriendsList() (optional: steam-friend ESP/aimbot filter).
      * NOTE: We don't use RELATIVE2ABSOLUTE() and we don't add any offset since
      * this is the signature to the function itself. */
-    GET_SIGNATURE(pat_IsPlayerOnSteamFriendsList, CLIENT_SO,
-                  SIG_IsPlayerOnSteamFriendsList);
-    IsPlayerOnSteamFriendsList = pat_IsPlayerOnSteamFriendsList;
+    GET_SIGNATURE_OPT(pat_IsPlayerOnSteamFriendsList, CLIENT_SO,
+                      SIG_IsPlayerOnSteamFriendsList);
+    if (pat_IsPlayerOnSteamFriendsList)
+        IsPlayerOnSteamFriendsList = pat_IsPlayerOnSteamFriendsList;
 
     return true;
 }
@@ -163,9 +171,10 @@ bool globals_init(void) {
     GET_HANDLE(h_vstdlib, VSTDLIB_SO);
     GET_HANDLE(h_sdl2, SDL_SO);
 
-    /* SDL2 */
-    SwapWindowPtr = (SwapWindow_t*)GET_OFFSET(h_sdl2, SWAPWINDOW_OFFSET);
-    PollEventPtr  = (PollEvent_t*)GET_OFFSET(h_sdl2, POLLEVENT_OFFSET);
+    /* SDL2: hook via GOT entries in launcher.so (writable, R_X86_64_JUMP_SLOT) */
+    GET_HANDLE(h_launcher, "./bin/linux64/launcher.so");
+    SwapWindowPtr = (SwapWindow_t*)GET_OFFSET(h_launcher, SWAPWINDOW_GOT_OFFSET);
+    PollEventPtr  = (PollEvent_t*)GET_OFFSET(h_launcher, POLLEVENT_GOT_OFFSET);
 
     /* Interfaces */
     GET_INTERFACE(h_client, i_baseclient, "VClient017");
@@ -178,7 +187,7 @@ bool globals_init(void) {
     GET_INTERFACE(h_engine, i_modelinfo, "VModelInfoClient006");
     GET_INTERFACE(h_engine, i_renderview, "VEngineRenderView014");
     GET_INTERFACE(h_engine, i_enginetrace, "EngineTraceClient003");
-    GET_INTERFACE(h_materialsystem, i_materialsystem, "VMaterialSystem081");
+    GET_INTERFACE(h_materialsystem, i_materialsystem, "VMaterialSystem082");
     GET_INTERFACE(h_engine, i_modelrender, "VEngineModel016");
     GET_INTERFACE(h_client, i_gamemovement, "GameMovement001");
     GET_INTERFACE(h_client, i_prediction, "VClientPrediction001");

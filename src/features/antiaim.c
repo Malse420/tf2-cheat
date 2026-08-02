@@ -63,8 +63,8 @@ void spinbot(usercmd_t* cmd) {
         spin_yaw = cmd->viewangles.y;
     }
 
-    /* Desync */
-    if (!bSendPacket)
+    /* Desync (only when actively choking a packet; bSendPacket optional) */
+    if (bSendPacket && !*bSendPacket)
         final_yaw += 58.f;
 
     /* Set fixed pitch and yaw we just calculated */

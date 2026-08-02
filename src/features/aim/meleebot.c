@@ -18,6 +18,12 @@ bool meleebot_key_down = false;
 static int get_next_crit_tick(usercmd_t* cmd) {
     int cmd_num = cmd->command_number;
 
+    /* Meleebot crit-prediction needs MD5_PseudoRandom + SetPredictionRandomSeed
+     * (optional signatures). If unavailable, skip prediction and return the
+     * current tick so meleebot simply uses the live random seed. */
+    if (!MD5_PseudoRandom || !SetPredictionRandomSeed)
+        return cmd_num;
+
     /* While we don't have a crit tick stored, check the next N ticks */
     for (int i = 0; i < CRIT_TICKS_TO_PRED; i++) {
         cmd->random_seed = MD5_PseudoRandom(cmd_num) & INT_MAX;
@@ -70,7 +76,8 @@ static void melee_crithack(usercmd_t* cmd) {
     /* Set the current cmd number to the next crit tick */
     const int crit_tick = get_next_crit_tick(cmd);
     cmd->command_number = crit_tick;
-    cmd->random_seed    = MD5_PseudoRandom(crit_tick) & INT_MAX;
+    if (MD5_PseudoRandom)
+        cmd->random_seed = MD5_PseudoRandom(crit_tick) & INT_MAX;
 }
 
 /*----------------------------------------------------------------------------*/

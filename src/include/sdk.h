@@ -270,17 +270,17 @@ typedef struct {
 /* Interfaces */
 
 typedef struct {
-    PAD(4 * 6);
+    PAD(8 * 6);
     void (*LevelInitPostEntity)(BaseClient*); /* 6 */
     void (*LevelShutdown)(BaseClient*);       /* 7 */
-    PAD(4 * 2);
+    PAD(8 * 2);
     void (*HudProcessInput)(BaseClient*, bool bActive); /* 10 */
     void (*HudUpdate)(BaseClient*, bool bActive);       /* 11 */
-    PAD(4 * 2);
+    PAD(8 * 2);
     void (*IN_ActivateMouse)(BaseClient*); /* 14 */
-    PAD(4 * 20);
+    PAD(8 * 20);
     void (*FrameStageNotify)(BaseClient*, ClientFrameStage_t curStage); /* 35 */
-    PAD(4 * 23);
+    PAD(8 * 23);
     bool (*GetPlayerView)(BaseClient*, ViewSetup* playerView); /* 59  */
 } VMT_BaseClient;
 
@@ -289,22 +289,22 @@ struct BaseClient {
 };
 
 typedef struct {
-    PAD(4 * 5);
+    PAD(8 * 5);
     void (*GetScreenSize)(EngineClient*, int* w, int* h); /* 5 */
-    PAD(4 * 2);
+    PAD(8 * 2);
     bool (*GetPlayerInfo)(EngineClient*, int entId, player_info_t* i); /* 8 */
-    PAD(4 * 3);
+    PAD(8 * 3);
     int (*GetLocalPlayer)(EngineClient*); /* 12 */
-    PAD(4 * 6);
+    PAD(8 * 6);
     void (*GetViewAngles)(EngineClient*, vec3_t* v); /* 19 */
     void (*SetViewAngles)(EngineClient*, vec3_t* v); /* 20 */
     int (*GetMaxClients)(EngineClient*);             /* 21 */
-    PAD(4 * 4);
+    PAD(8 * 4);
     bool (*IsInGame)(EngineClient*);    /* 26 */
     bool (*IsConnected)(EngineClient*); /* 27 */
-    PAD(4 * 8);
+    PAD(8 * 8);
     VMatrix* (*WorldToScreenMatrix)(EngineClient*); /* 36, not reliable */
-    PAD(4 * 48);
+    PAD(8 * 48);
     bool (*IsTakingScreenshot)(EngineClient*); /* 85 */
 } VMT_EngineClient;
 
@@ -313,9 +313,9 @@ struct EngineClient {
 };
 
 typedef struct {
-    PAD(4 * 3);
+    PAD(8 * 3);
     Entity* (*GetClientEntity)(EntityList*, int entnum); /* 3 */
-    PAD(4 * 4);
+    PAD(8 * 4);
     int (*GetMaxEntities)(EntityList*); /* 8 */
 } VMT_EntityList;
 
@@ -324,7 +324,7 @@ struct EntityList {
 };
 
 typedef struct {
-    PAD(4 * 15);
+    PAD(8 * 15);
     void (*Paint)(EngineVGui*, uint32_t mode); /* 15 */
 } VMT_EngineVGui;
 
@@ -333,7 +333,7 @@ struct EngineVGui {
 };
 
 typedef struct {
-    PAD(4 * 12);
+    PAD(8 * 12);
     ConVar* (*FindVar)(ICvar*, const char* name);                     /* 12 */
     const ConVar* (*FindVar_const)(ICvar*, const char* name);         /* 13 */
     ConCommand* (*FindCommand)(ICvar*, const char* name);             /* 14 */
@@ -345,35 +345,35 @@ struct ICvar {
 };
 
 typedef struct {
-    PAD(4 * 10);
+    PAD(8 * 10);
     void (*SetColor)(MatSurface*, int r, int g, int b, int a); /* 10 */
-    PAD(4 * 1);
+    PAD(8 * 1);
     void (*DrawFilledRect)(MatSurface*, int x0, int y0, int x1, int y1);
-    PAD(4 * 1);
+    PAD(8 * 1);
     void (*DrawRect)(MatSurface*, int x0, int y0, int x1, int y1); /* 14 */
     void (*DrawLine)(MatSurface*, int x0, int y0, int x1, int y1); /* 15 */
-    PAD(4 * 1);
+    PAD(8 * 1);
     void (*SetTextFont)(MatSurface*, HFont font);                  /* 17 */
     void (*SetTextColor)(MatSurface*, int r, int g, int b, int a); /* 18 */
-    PAD(4 * 1);
+    PAD(8 * 1);
     void (*SetTextPos)(MatSurface*, int x, int y);   /* 20 */
     void (*GetTextPos)(MatSurface*, int* x, int* y); /* 21 */
     void (*PrintText)(MatSurface*, const wchar_t* text, int len,
                       FontDrawType_t drawType); /* 22 */
-    PAD(4 * 29);
+    PAD(8 * 29);
     void (*SetCursorAlwaysVisible)(MatSurface*, bool visible); /* 52 */
-    PAD(4 * 13);
+    PAD(8 * 13);
     HFont (*CreateFont)(MatSurface*); /* 66 */
     bool (*SetFontGlyphSet)(MatSurface*, HFont font, const char* sysfontname,
                             int tall, int weight, int blur, int scanlines,
                             int flags, int nRangeMin, int nRangeMax); /* 67 */
-    PAD(4 * 7);
+    PAD(8 * 7);
     void (*GetTextSize)(MatSurface*, HFont font, const wchar_t* str, int* w,
                         int* h); /* 75 */
-    PAD(4 * 23);
+    PAD(8 * 23);
     void (*DrawCircle)(MatSurface*, int x, int y, int radius,
                        int segments); /* 99 */
-    PAD(4 * 11);
+    PAD(8 * 11);
     void (*OnScreenSizeChanged)(MatSurface*, int nOldWidth, int nOldHeight);
 } VMT_MatSurface;
 
@@ -382,9 +382,9 @@ struct MatSurface {
 };
 
 typedef struct {
-    PAD(4 * 37);
+    PAD(8 * 37);
     const char* (*GetName)(IPanel*, VPanel); /* 37 */
-    PAD(4 * 4);
+    PAD(8 * 4);
     void (*PaintTraverse)(IPanel*, VPanel panel, bool forcerepaint,
                           bool allowforce); /* 42 */
 } VMT_IPanel;
@@ -394,9 +394,9 @@ struct IPanel {
 };
 
 typedef struct {
-    PAD(4 * 3);
+    PAD(8 * 3);
     int (*GetModelIndex)(IVModelInfo*, const char* name); /* 3 */
-    PAD(4 * 25);
+    PAD(8 * 25);
     studiohdr_t* (*GetStudioModel)(IVModelInfo*, const model_t* mod); /* 29 */
 } VMT_IVModelInfo;
 
@@ -405,7 +405,7 @@ struct IVModelInfo {
 };
 
 typedef struct {
-    PAD(4 * 4);
+    PAD(8 * 4);
     void (*TraceRay)(EngineTrace*, const Ray_t* ray, unsigned int fMask,
                      TraceFilter* pTraceFilter, Trace_t* pTrace); /* 4 */
 } VMT_EngineTrace;
@@ -415,7 +415,7 @@ struct EngineTrace {
 };
 
 typedef struct {
-    PAD(4 * 27);
+    PAD(8 * 27);
     void (*AlphaModulate)(IMaterial*, float alpha);               /* 27 */
     void (*ColorModulate)(IMaterial*, float r, float g, float b); /* 28 */
     void (*SetMaterialVarFlag)(IMaterial*, int flag, bool on);    /* 29 */
@@ -427,7 +427,7 @@ struct IMaterial {
 };
 
 typedef struct {
-    PAD(4 * 11);
+    PAD(8 * 11);
     void (*DepthRange)(IMatRenderContext*, float zNear, float zFar);
 } VMT_IMatRenderContext;
 
@@ -436,11 +436,11 @@ struct IMatRenderContext {
 };
 
 typedef struct {
-    PAD(4 * 73);
+    PAD(8 * 73);
     IMaterial* (*FindMaterial)(MaterialSystem*, char const* pMaterialName,
                                const char* pTextureGroupName, bool complain,
                                const char* pComplainPrefix); /* 73 */
-    PAD(4 * 26);
+    PAD(8 * 26);
     IMatRenderContext* (*GetRenderContext)(MaterialSystem*); /* 100 */
 } VMT_MaterialSystem;
 
@@ -449,10 +449,10 @@ struct MaterialSystem {
 };
 
 typedef struct {
-    PAD(4 * 1);
+    PAD(8 * 1);
     void (*ForcedMaterialOverride)(ModelRender*, IMaterial* newMaterial,
                                    int nOverrideType); /* 1 */
-    PAD(4 * 17);
+    PAD(8 * 17);
     void (*DrawModelExecute)(ModelRender*, DrawModelState_t* state,
                              ModelRenderInfo_t* pInfo,
                              matrix3x4_t* pCustomBoneToWorld); /* 19 */
@@ -463,7 +463,7 @@ struct ModelRender {
 };
 
 typedef struct {
-    PAD(4 * 2);
+    PAD(8 * 2);
     void (*ProcessMovement)(GameMovement*, Entity* pPlayer, CMoveData* pMove);
     void (*StartTrackPredictionErrors)(GameMovement*, Entity* pPlayer);  /* 3 */
     void (*FinishTrackPredictionErrors)(GameMovement*, Entity* pPlayer); /* 4 */
@@ -482,10 +482,10 @@ struct MoveHelper {
 };
 
 typedef struct {
-    PAD(4 * 13);
+    PAD(8 * 13);
     void (*GetLocalViewAngles)(IPrediction*, vec3_t* ang); /* 13 */
     void (*SetLocalViewAngles)(IPrediction*, vec3_t* ang); /* 14 */
-    PAD(4 * 3);
+    PAD(8 * 3);
     void (*RunCommand)(IPrediction*, Entity* player, usercmd_t* cmd,
                        MoveHelper* helper); /* 18 */
     void (*SetupMove)(IPrediction*, Entity* player, usercmd_t* cmd,
@@ -510,12 +510,12 @@ struct IPrediction {
 };
 
 typedef struct {
-    PAD(4 * 4);
+    PAD(8 * 4);
     void (*SetBlend)(RenderView*, float blend);                         /* 4 */
     float (*GetBlend)(RenderView*);                                     /* 5 */
     void (*SetColorModulation)(RenderView*, const float_rgba_t* blend); /* 6 */
     void (*GetColorModulation)(RenderView*, float_rgba_t* blend);       /* 7 */
-    PAD(4 * 42);
+    PAD(8 * 42);
     void (*GetMatricesForView)(RenderView*, const ViewSetup* view,
                                VMatrix* pWorldToView,
                                VMatrix* pViewToProjection,
@@ -528,9 +528,9 @@ struct RenderView {
 };
 
 typedef struct {
-    PAD(4 * 8);
+    PAD(8 * 8);
     usercmd_t* (*GetUserCmd)(CInput*, int sequence_number); /* 8 */
-    PAD(4 * 22);
+    PAD(8 * 22);
     int (*CAM_IsThirdPerson)(CInput*);  /* 31 */
     void (*CAM_ToThirdPerson)(CInput*); /* 32 */
     void (*CAM_ToFirstPerson)(CInput*); /* 33 */
@@ -539,13 +539,13 @@ typedef struct {
 struct CInput {
     VMT_CInput* vmt;
     PAD(0xF8);
-    usercmd_t* m_pCommands; /* 0xFC */
+    usercmd_t* m_pCommands; /* 0x100 (was 0xFC in 32-bit) */
 };
 
 typedef struct {
-    PAD(4 * 17);
+    PAD(8 * 17);
     void (*OverrideView)(ClientMode*, ViewSetup* pSetup); /* 17 */
-    PAD(4 * 4);
+    PAD(8 * 4);
     bool (*CreateMove)(ClientMode*, float flInputSampleTime, usercmd_t* cmd);
 } VMT_ClientMode;
 

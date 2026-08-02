@@ -8,34 +8,61 @@
 #include "util.h"
 #include "sdk.h"
 
-/* Module names for handles */
-#define CLIENT_SO         "./tf/bin/client.so"
-#define ENGINE_SO         "./bin/engine.so"
-#define MATSURFACE_SO     "./bin/vguimatsurface.so"
-#define VGUI_SO           "./bin/vgui2.so"
-#define MATERIALSYSTEM_SO "./bin/materialsystem.so"
-#define VSTDLIB_SO        "./bin/libvstdlib.so"
-#define SDL_SO            "./bin/libSDL2-2.0.so.0"
+/* Module names for handles (64-bit) */
+#define CLIENT_SO         "./tf/bin/linux64/client.so"
+#define ENGINE_SO         "./bin/linux64/engine.so"
+#define MATSURFACE_SO     "./bin/linux64/vguimatsurface.so"
+#define VGUI_SO           "./bin/linux64/vgui2.so"
+#define MATERIALSYSTEM_SO "./bin/linux64/materialsystem.so"
+#define VSTDLIB_SO        "./bin/linux64/libvstdlib.so"
+#define SDL_SO            "libSDL2-2.0.so.0"
 
 /*----------------------------------------------------------------------------*/
-/* Signatures */
+/* 64-bit callsite signatures for the global singletons resolved via vtable
+ * thunks. Each matches a `lea r,[rip->GOT_slot]`; RELATIVE2ABSOLUTE(pat+9) gives
+ * the GOT slot address, and `*(GOT slot)` is the object pointer. */
+
+/* CClientMode::g_pClientMode (client.so). OverrideView vtable[17] confirmed. */
+#define SIG_ClientMode \
+    "C7 E8 3A 7A 0B 00 48 8D 05 ? ? ? ? 4C 89 E2 48 8D 35"
+
+/* gpGlobals / CGlobalVars (client.so). Layout (realtime/framecount/...) confirmed. */
+#define SIG_GlobalVars \
+    "00 E8 0B B8 11 00 48 8D 05 ? ? ? ? 48 8B 00 F3 0F 10 00"
+
+/* CInput::g_pInput (client.so). GetUserCmd vtable[8] confirmed. */
+#define SIG_Input \
+    "80 3F 66 89 47 44 48 8D 05 ? ? ? ? 48 C7 47 48 00 00 C8"
+
+/*----------------------------------------------------------------------------*/
 
 /* See: https://github.com/8dcc/tf2-cheat/wiki/Getting-SDL-offsets */
-#define SIG_StartDrawing \
-    "F3 0F 2A C0 F3 0F 59 45 ? F3 0F 2C C0 89 85 ? ? ? ? E8 ? ? ? ? 8D 4D E4"
+/* 64-bit: entry-point signature of CMatSystemSurface::StartDrawing.
+ * RIP-relative displacements and the je target are wildcarded so the pattern
+ * survives minor rebuilds. The match address IS the function, so no
+ * RELATIVE2ABSOLUTE offset is needed (see get_sigs()). */
+#define SIG_StartDrawing                                                      \
+    "55 48 89 E5 41 54 53 48 89 FB 48 83 EC 20 80 3D ? ? ? ? 00 0F 84 ? ? ? " \
+    "? 48 8D 05 ? ? ? ? C6 05 ? ? ? ? 01 C7 83 9C 03 00 00 FF FF FF FF"
 
-#define SIG_FinishDrawing \
-    "89 04 24 FF 92 ? ? ? ? 89 34 24 E8 ? ? ? ? 80 7D 97 ? 0F 85 ? ? ? ?"
+/* 64-bit: entry-point signature of CMatSystemSurface::FinishDrawing.
+ * Wildcards the RIP-relative lea displacement; match address is the function. */
+#define SIG_FinishDrawing                                                     \
+    "55 48 89 E5 41 54 49 89 FC 48 83 EC 18 48 8D 05 ? ? ? ? 48 8B 38 48 8B " \
+    "07 FF 90 10 03 00 00"
 
 /* Only part in CL_Move where it sets bSendPacket to 1 */
 #define SIG_bSendPacket                                                      \
     "BE ? ? ? ? E9 ? ? ? ? 8D B6 00 00 00 00 A1 ? ? ? ? C7 45 ? ? ? ? ? C7 " \
     "45 ? ? ? ? ? 85 C0 0F 84 ? ? ? ? 8D 55 A8 C7 44 24 ? ? ? ? ?"
 
-/* CL_RegisterResources (Also in CL_ReadPackets) */
+/* 64-bit: CL_ReadPackets callsite. The first `lea rdi,[rip->cl]` (disp at +9)
+ * resolves to the `cl` CClientState global object. See get_sigs(). */
 #define SIG_ClientState                                                       \
-    "C7 04 24 ? ? ? ? E8 ? ? ? ? C7 04 24 ? ? ? ? 89 44 24 04 E8 ? ? ? ? A1 " \
-    "? ? ? ?"
+    "8B 05 ? ? ? ? 48 8D 3D ? ? ? ? 89 05 ? ? ? ? E8 ? ? ? ? 84 C0 75 ? 83 " \
+    "05 ? ? ? ? 01 E8 ? ? ? ? 41 89 C0 8B 05 ? ? ? ? 45 84 C0 0F 84 ? ? ? " \
+    "? 48 8D 3D ? ? ? ? 89 05 ? ? ? ? E8 ? ? ? ? F3 0F 11 05 ? ? ? ? 48 8D " \
+    "3D ? ? ? ? E8 ? ? ? ?"
 
 /* CPrediction::RunCommand -> CPrediction::StartCommand -> SetPse..RandomSeed */
 #define SIG_SetPredictionRandomSeed                                           \

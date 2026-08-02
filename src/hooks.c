@@ -28,21 +28,63 @@ PollEvent_t ho_PollEvent   = NULL;
 /*----------------------------------------------------------------------------*/
 
 bool hooks_init(void) {
+    fprintf(stderr, "[ENOCH] hooks_init starting\n");
+    fflush(stderr);
+    
     VMT_HOOK(i_baseclient, LevelShutdown);
+    fprintf(stderr, "[ENOCH] LevelShutdown hooked\n");
+    fflush(stderr);
+    
     VMT_HOOK(i_baseclient, LevelInitPostEntity);
+    fprintf(stderr, "[ENOCH] LevelInitPostEntity hooked\n");
+    fflush(stderr);
+    
     VMT_HOOK(i_baseclient, FrameStageNotify);
+    fprintf(stderr, "[ENOCH] FrameStageNotify hooked\n");
+    fflush(stderr);
+    
     VMT_HOOK(i_clientmode, CreateMove);
+    fprintf(stderr, "[ENOCH] CreateMove hooked\n");
+    fflush(stderr);
+    
     VMT_HOOK(i_clientmode, OverrideView);
+    fprintf(stderr, "[ENOCH] OverrideView hooked\n");
+    fflush(stderr);
+    
     VMT_HOOK(i_enginevgui, Paint);
+    fprintf(stderr, "[ENOCH] Paint hooked\n");
+    fflush(stderr);
+    
     VMT_HOOK(i_panel, PaintTraverse);
+    fprintf(stderr, "[ENOCH] PaintTraverse hooked\n");
+    fflush(stderr);
+    
     VMT_HOOK(i_modelrender, DrawModelExecute);
+    fprintf(stderr, "[ENOCH] DrawModelExecute hooked\n");
+    fflush(stderr);
+    
     VMT_HOOK(i_prediction, RunCommand);
+    fprintf(stderr, "[ENOCH] RunCommand hooked\n");
+    fflush(stderr);
+    
     VMT_HOOK(i_input, GetUserCmd);
+    fprintf(stderr, "[ENOCH] GetUserCmd hooked\n");
+    fflush(stderr);
+    
     VMT_HOOK(i_surface, OnScreenSizeChanged);
+    fprintf(stderr, "[ENOCH] OnScreenSizeChanged hooked\n");
+    fflush(stderr);
 
     HOOK_SDL(SwapWindow);
+    fprintf(stderr, "[ENOCH] SwapWindow hooked\n");
+    fflush(stderr);
+    
     HOOK_SDL(PollEvent);
+    fprintf(stderr, "[ENOCH] PollEvent hooked\n");
+    fflush(stderr);
 
+    fprintf(stderr, "[ENOCH] All hooks installed successfully\n");
+    fflush(stderr);
     return true;
 }
 
@@ -75,6 +117,8 @@ void h_LevelShutdown(BaseClient* thisptr) {
 }
 
 void h_LevelInitPostEntity(BaseClient* thisptr) {
+    fprintf(stderr, "[ENOCH] h_LevelInitPostEntity called\n");
+    fflush(stderr);
     ORIGINAL(LevelInitPostEntity, thisptr);
 
     /* Get once on LevelInit */
@@ -88,6 +132,8 @@ void h_LevelInitPostEntity(BaseClient* thisptr) {
 }
 
 void h_FrameStageNotify(BaseClient* thisptr, ClientFrameStage_t curStage) {
+    fprintf(stderr, "[ENOCH] h_FrameStageNotify called (stage=%d)\n", curStage);
+    fflush(stderr);
     /* On FRAME_RENDER_START, if we want to use network angles for thirdperson,
      * set them before calling the original FrameStageNotify. */
     if (curStage == FRAME_RENDER_START) {
@@ -116,6 +162,8 @@ void h_FrameStageNotify(BaseClient* thisptr, ClientFrameStage_t curStage) {
 
 bool h_CreateMove(ClientMode* thisptr, float flInputSampleTime,
                   usercmd_t* cmd) {
+    fprintf(stderr, "[ENOCH] h_CreateMove called\n");
+    fflush(stderr);
     /* Reset each tick */
     g.psilent = false;
 
@@ -155,15 +203,16 @@ bool h_CreateMove(ClientMode* thisptr, float flInputSampleTime,
     ang_clamp(&cmd->viewangles);
     correct_movement(cmd, old_angles);
 
-    /* Did I choke in the last tick? */
+    /* Did I choke in the last tick? (bSendPacket optional: pSilent/anti-aim) */
     static bool did_choke = false;
 
-    if (g.psilent) {
+    if (bSendPacket && g.psilent) {
         *bSendPacket = false;
         did_choke    = true;
     } else if (did_choke) {
         /* Only restore if we chocked on the tick before this one */
-        *bSendPacket = true;
+        if (bSendPacket)
+            *bSendPacket = true;
         did_choke    = false;
 
         cmd->viewangles  = old_angles;
@@ -172,13 +221,14 @@ bool h_CreateMove(ClientMode* thisptr, float flInputSampleTime,
     }
 
     /* Make sure we aren't choking too many packets */
-    if (c_clientstate->chokedcommands >= MAX_CHOKE) {
+    if (bSendPacket && c_clientstate &&
+        c_clientstate->chokedcommands >= MAX_CHOKE) {
         *bSendPacket = true;
         did_choke    = false;
     }
 
-    /* Save real angles for renderning in FrameStageNotify(RENDER_START) */
-    if (*bSendPacket)
+    /* Save real angles for rendering in FrameStageNotify(RENDER_START) */
+    if (bSendPacket && *bSendPacket)
         g.render_angles = cmd->viewangles;
 
     return false;
@@ -227,6 +277,8 @@ void h_Paint(EngineVGui* thisptr, uint32_t mode) {
 
 void h_PaintTraverse(IPanel* thisptr, VPanel panel, bool forcerepaint,
                      bool allowforce) {
+    fprintf(stderr, "[ENOCH] h_PaintTraverse called (panel=%d)\n", panel);
+    fflush(stderr);
     if (settings.clean_screenshots && METHOD(i_engine, IsTakingScreenshot)) {
         ORIGINAL(PaintTraverse, thisptr, panel, forcerepaint, allowforce);
         return;
@@ -357,6 +409,8 @@ static inline void toggle_keybinds(void) {
 }
 
 void h_SwapWindow(SDL_Window* window) {
+    fprintf(stderr, "[ENOCH] h_SwapWindow called\n");
+    fflush(stderr);
     /* Initialize once */
     if (!ctx)
         if (!menu_init(window))

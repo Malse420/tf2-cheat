@@ -6,7 +6,7 @@
 typedef void* ConCommand;
 
 typedef struct {
-    PAD(4 * 14);
+    PAD(8 * 14);
     void (*InternalSetValue)(ConVar*, const char* value);            /* 14 */
     void (*InternalSetFloatValue)(ConVar*, float value, bool force); /* 15 */
     void (*InternalSetIntValue)(ConVar*, int value);                 /* 16 */

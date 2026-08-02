@@ -6,20 +6,20 @@
 typedef struct Weapon Weapon;
 
 typedef struct {
-    PAD(4 * 79);
+    PAD(8 * 79);
     int (*GetIndex)(Weapon*); /* 79 */
-    PAD(4 * 318);
+    PAD(8 * 318);
     int (*GetSlot)(Weapon*); /* 398 */
-    PAD(4 * 1);
+    PAD(8 * 1);
     const char* (*GetName)(Weapon*); /* 400 */
-    PAD(4 * 48);
+    PAD(8 * 48);
     int (*GetWeaponId)(Weapon*);   /* 449 */
     int (*GetDamageType)(Weapon*); /* 450 */
-    PAD(4 * 14);
+    PAD(8 * 14);
     bool (*CalcIsAttackCriticalHelper)(Weapon*); /* 465 */
-    PAD(4 * 28);
+    PAD(8 * 28);
     bool (*CanFireCriticalShot)(Weapon*, bool bIsHeadshot); /* 494 */
-    PAD(4 * 30);
+    PAD(8 * 30);
     int (*GetSwingRange)(Weapon*); /* 525 */
 } VMT_Weapon;
 
@@ -43,13 +43,13 @@ struct Weapon {
 static inline bool IsMedigunHealing(Weapon* w) {
     /* CWeaponMedigun->m_bHealing */
     const size_t offset = 0xC31;
-    return *(bool*)((uint32_t)w + offset);
+    return *(bool*)((uintptr_t)w + offset);
 }
 
 static inline CBaseHandle GetMedigunHealingHandle(Weapon* w) {
     /* CWeaponMedigun->m_hHealingTarget */
     const size_t offset = 0xC28;
-    return *(CBaseHandle*)((uint32_t)w + offset);
+    return *(CBaseHandle*)((uintptr_t)w + offset);
 }
 
 static inline bool SniperCanHeadshot(Weapon* w) {
