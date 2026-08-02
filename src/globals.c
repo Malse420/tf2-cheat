@@ -123,14 +123,11 @@ static inline bool get_sigs(void) {
     FinishDrawing = pat_FinishDrawing;
 
     /* CL_Move's bSendPacket (optional: pSilent/anti-aim/fakelag).
-     * NOTE: We set PROT_WRITE since since we will change the pointer value.
-     * 64-bit TODO: the 32-bit `pat+1` (absolute imm) doesn't apply; needs the
-     * RIP-relative resolution once the 64-bit signature is finalized. */
-    GET_SIGNATURE_OPT(pat_bSendPacket, ENGINE_SO, SIG_bSendPacket);
-    if (pat_bSendPacket) {
-        bSendPacket = pat_bSendPacket + 1;
-        protect_addr(bSendPacket, PROT_READ | PROT_WRITE | PROT_EXEC);
-    }
+     * 64-bit: bSendPacket is no longer a standalone global variable in 64-bit TF2.
+     * To prevent crashes, we explicitly initialize it to NULL. Since all call sites
+     * of bSendPacket are already NULL-guarded, this safely disables packet choking
+     * features without compromising overall injection and cheat stability. */
+    bSendPacket = NULL;
 
     /* ClientState (64-bit: 'cl' global object; resolve the lea->cl RIP target) */
     GET_SIGNATURE(pat_ClientState, ENGINE_SO, SIG_ClientState);

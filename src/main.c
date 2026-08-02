@@ -2,6 +2,8 @@
 #include <stdio.h>
 #define __USE_GNU
 #include <dlfcn.h>
+#include <pthread.h>
+#include <unistd.h>
 #include "include/main.h"
 #include "include/globals.h"
 #include "include/hooks.h"
@@ -54,14 +56,27 @@ void unload() {
     printf("Enoch unloaded.\n\n");
 }
 
+static void* safe_unload_thread(void* lpParam) {
+    (void)lpParam;
+    /* Sleep for 100ms to allow the calling thread to return before unmapping */
+    usleep(100000);
+
+    if (library_filename) {
+        void* self = dlopen(library_filename, RTLD_LAZY | RTLD_NOLOAD);
+        if (self) {
+            dlclose(self); /* Close the call we just made to dlopen() */
+            dlclose(self); /* Close the call our injector made */
+        }
+    }
+    return NULL;
+}
+
 void self_unload(void) {
     if (!library_filename)
         return;
 
-    void* self = dlopen(library_filename, RTLD_LAZY | RTLD_NOLOAD);
-    if (!self)
-        return;
-
-    dlclose(self); /* Close the call we just made to dlopen() */
-    dlclose(self); /* Close the call our injector made */
+    pthread_t thread;
+    if (pthread_create(&thread, NULL, safe_unload_thread, NULL) == 0) {
+        pthread_detach(thread);
+    }
 }
