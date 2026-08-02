@@ -6,6 +6,8 @@
 #include <link.h>     /* link_map */
 #include <unistd.h>   /* getpagesize */
 #include <sys/mman.h> /* mprotect */
+#include <fcntl.h>    /* open */
+#include <errno.h>    /* errno */
 
 #include "include/sdk.h"
 #include "include/util.h"
@@ -31,19 +33,35 @@ void* get_interface(void* handle, const char* name) {
     return CreateInterface(name, NULL);
 }
 
+bool is_pointer_readable(const void* ptr) {
+    if (!ptr)
+        return false;
+
+    int fd = open("/dev/null", O_WRONLY);
+    if (fd < 0)
+        return true; /* fallback if we can't open /dev/null */
+
+    /* write() returns -1 and sets errno to EFAULT if the pointer is not readable */
+    ssize_t res = write(fd, ptr, 1);
+    close(fd);
+
+    return res >= 0 || errno != EFAULT;
+}
+
 size_t vmt_size(void* vmt) {
-    /* 64-bit: Source vtables are NOT reliably NULL-terminated and often have
-     * NULL entries in the middle, so scanning for the first NULL (the old
-     * 32-bit approach) returns too few bytes. That caused CLONE_VMT to
-     * malloc a too-small buffer, and VMT_HOOK then wrote past it (e.g.
-     * ClientMode::CreateMove at index 22) -> heap overflow -> segfault.
-     *
-     * Use a fixed generous size instead. Source vtables never exceed ~100
-     * entries; 200 is a safe upper bound. Copying a few extra bytes of
-     * adjacent read-only data past the real vtable end is harmless since the
-     * cheat and the game only access known indices. */
-    (void)vmt;
-    return 200 * sizeof(void*);
+    if (!vmt)
+        return 0;
+
+    void** vmt_ptr = (void**)vmt;
+    size_t size = 0;
+    while (size < 200) {
+        if (!is_pointer_readable(&vmt_ptr[size])) {
+            break;
+        }
+        size++;
+    }
+
+    return size * sizeof(void*);
 }
 
 /*----------------------------------------------------------------------------*/
