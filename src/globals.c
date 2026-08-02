@@ -168,10 +168,14 @@ bool globals_init(void) {
     GET_HANDLE(h_vstdlib, VSTDLIB_SO);
     GET_HANDLE(h_sdl2, SDL_SO);
 
-    /* SDL2: hook via GOT entries in launcher.so (writable, R_X86_64_JUMP_SLOT) */
+    /* SDL2: hook via GOT entries in launcher.so (dynamically resolved) */
     GET_HANDLE(h_launcher, "./bin/linux64/launcher.so");
-    SwapWindowPtr = (SwapWindow_t*)GET_OFFSET(h_launcher, SWAPWINDOW_GOT_OFFSET);
-    PollEventPtr  = (PollEvent_t*)GET_OFFSET(h_launcher, POLLEVENT_GOT_OFFSET);
+    SwapWindowPtr = (SwapWindow_t*)find_got_entry(h_launcher, "SDL_GL_SwapWindow");
+    PollEventPtr  = (PollEvent_t*)find_got_entry(h_launcher, "SDL_PollEvent");
+    if (!SwapWindowPtr || !PollEventPtr) {
+        ERR("Failed to dynamically resolve SwapWindowPtr or PollEventPtr from launcher.so");
+        return false;
+    }
 
     /* Interfaces */
     GET_INTERFACE(h_client, i_baseclient, "VClient017");

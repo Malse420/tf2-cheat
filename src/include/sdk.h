@@ -382,11 +382,11 @@ struct MatSurface {
 };
 
 typedef struct {
-    PAD(8 * 37);
-    const char* (*GetName)(IPanel*, VPanel); /* 37 */
+    PAD(8 * 36);
+    const char* (*GetName)(IPanel*, VPanel); /* 36 */
     PAD(8 * 4);
     void (*PaintTraverse)(IPanel*, VPanel panel, bool forcerepaint,
-                          bool allowforce); /* 42 */
+                          bool allowforce); /* 41 */
 } VMT_IPanel;
 
 struct IPanel {
@@ -485,13 +485,13 @@ typedef struct {
     PAD(8 * 13);
     void (*GetLocalViewAngles)(IPrediction*, vec3_t* ang); /* 13 */
     void (*SetLocalViewAngles)(IPrediction*, vec3_t* ang); /* 14 */
-    PAD(8 * 3);
+    PAD(8 * 4);
     void (*RunCommand)(IPrediction*, Entity* player, usercmd_t* cmd,
-                       MoveHelper* helper); /* 18 */
+                       MoveHelper* helper); /* 19 */
     void (*SetupMove)(IPrediction*, Entity* player, usercmd_t* cmd,
-                      MoveHelper* helper, CMoveData* move); /* 19 */
+                      MoveHelper* helper, CMoveData* move); /* 20 */
     void (*FinishMove)(IPrediction*, Entity* player, usercmd_t* cmd,
-                       CMoveData* move); /* 20 */
+                       CMoveData* move); /* 21 */
 } VMT_IPrediction;
 
 struct IPrediction {

@@ -51,6 +51,7 @@
 void* get_interface(void* handle, const char* name);
 size_t vmt_size(void* vmt);
 bool is_pointer_readable(const void* ptr);
+void* find_got_entry(void* handle, const char* symbol_name);
 
 bool can_shoot(void);
 bool melee_dealing_damage(usercmd_t* cmd);

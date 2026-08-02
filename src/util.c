@@ -8,6 +8,8 @@
 #include <sys/mman.h> /* mprotect */
 #include <fcntl.h>    /* open */
 #include <errno.h>    /* errno */
+#include <elf.h>      /* Elf64_* */
+#include <string.h>   /* strcmp */
 
 #include "include/sdk.h"
 #include "include/util.h"
@@ -62,6 +64,69 @@ size_t vmt_size(void* vmt) {
     }
 
     return size * sizeof(void*);
+}
+
+void* find_got_entry(void* handle, const char* symbol_name) {
+    struct link_map* map = (struct link_map*)handle;
+    if (!map)
+        return NULL;
+
+    Elf64_Dyn* dyn = map->l_ld;
+    Elf64_Sym* symtab = NULL;
+    char* strtab = NULL;
+    Elf64_Rela* jmprel = NULL;
+    size_t pltrelsz = 0;
+    Elf64_Rela* rela_dyn = NULL;
+    size_t relasz = 0;
+
+    for (; dyn->d_tag != DT_NULL; dyn++) {
+        if (dyn->d_tag == DT_SYMTAB) {
+            symtab = (Elf64_Sym*)(dyn->d_un.d_ptr);
+        } else if (dyn->d_tag == DT_STRTAB) {
+            strtab = (char*)(dyn->d_un.d_ptr);
+        } else if (dyn->d_tag == DT_JMPREL) {
+            jmprel = (Elf64_Rela*)(dyn->d_un.d_ptr);
+        } else if (dyn->d_tag == DT_PLTRELSZ) {
+            pltrelsz = dyn->d_un.d_val;
+        } else if (dyn->d_tag == DT_RELA) {
+            rela_dyn = (Elf64_Rela*)(dyn->d_un.d_ptr);
+        } else if (dyn->d_tag == DT_RELASZ) {
+            relasz = dyn->d_un.d_val;
+        }
+    }
+
+    if (!symtab || !strtab)
+        return NULL;
+
+    /* Search JMPREL (PLT) */
+    if (jmprel && pltrelsz > 0) {
+        size_t rel_count = pltrelsz / sizeof(Elf64_Rela);
+        for (size_t i = 0; i < rel_count; i++) {
+            Elf64_Rela* rela = &jmprel[i];
+            uint32_t sym_idx = ELF64_R_SYM(rela->r_info);
+            Elf64_Sym* sym = &symtab[sym_idx];
+            const char* name = &strtab[sym->st_name];
+            if (strcmp(name, symbol_name) == 0) {
+                return (void*)(map->l_addr + rela->r_offset);
+            }
+        }
+    }
+
+    /* Search RELA (DYN) */
+    if (rela_dyn && relasz > 0) {
+        size_t rel_count = relasz / sizeof(Elf64_Rela);
+        for (size_t i = 0; i < rel_count; i++) {
+            Elf64_Rela* rela = &rela_dyn[i];
+            uint32_t sym_idx = ELF64_R_SYM(rela->r_info);
+            Elf64_Sym* sym = &symtab[sym_idx];
+            const char* name = &strtab[sym->st_name];
+            if (strcmp(name, symbol_name) == 0) {
+                return (void*)(map->l_addr + rela->r_offset);
+            }
+        }
+    }
+
+    return NULL;
 }
 
 /*----------------------------------------------------------------------------*/
